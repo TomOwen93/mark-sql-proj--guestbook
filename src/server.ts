@@ -6,11 +6,10 @@ import { Client } from "pg";
 //and default username and password,
 //we only need to specify the (non-default) database name.
 
-const client = new Client({ database: 'guestbook' });
+const client = new Client({ database: "guestbook" });
 
 //TODO: this request for a connection will not necessarily complete before the first HTTP request is made!
 client.connect();
-
 
 const app = express();
 
@@ -26,11 +25,12 @@ app.use(express.json());
 
 //When this route is called, return the most recent 100 signatures in the db
 app.get("/signatures", async (req, res) => {
-  const signatures = null; //FIXME-TASK: get signatures from db!
+  const queryText = "SELECT * from signatures LIMIT 100";
+  const signatures = await client.query(queryText);
   res.status(200).json({
     status: "success",
     data: {
-      signatures
+      signatures,
     },
   });
 });
@@ -40,7 +40,10 @@ app.get("/signatures/:id", async (req, res) => {
   //  see documentation: https://expressjs.com/en/guide/routing.html
   const id = parseInt(req.params.id); // params are always string type
 
-  const signature = null;   //FIXME-TASK get the signature row from the db (match on id)
+  const queryText = "SELECT * FROM signatures WHERE $1 = id";
+  const values = [`${id}`];
+
+  const signature = await client.query(queryText, values); //FIXME-TASK get the signature row from the db (match on id)
 
   if (signature) {
     res.status(200).json({
@@ -62,7 +65,10 @@ app.get("/signatures/:id", async (req, res) => {
 app.post("/signatures", async (req, res) => {
   const { name, message } = req.body;
   if (typeof name === "string") {
-    const createdSignature = null; //FIXME-TASK: insert the supplied signature object into the DB
+    const queryText =
+      "INSERT INTO signatures(message, signature) VALUES ($1, $2)";
+    const values = [message, name];
+    const createdSignature = await client.query(queryText, values); //FIXME-TASK: insert the supplied signature object into the DB
 
     res.status(201).json({
       status: "success",
@@ -86,8 +92,10 @@ app.put("/signatures/:id", async (req, res) => {
   const { name, message } = req.body;
   const id = parseInt(req.params.id);
   if (typeof name === "string") {
-
-    const result: any = null; //FIXME-TASK: update the signature with given id in the DB.
+    const queryText =
+      "UPDATE signatures SET signature = $1, message = $2 where id = $3";
+    const values = [name, message, id];
+    const result: any = await client.query(queryText, values);
 
     if (result.rowCount === 1) {
       const updatedSignature = result.rows[0];
@@ -104,7 +112,6 @@ app.put("/signatures/:id", async (req, res) => {
           id: "Could not find a signature with that id identifier",
         },
       });
-
     }
   } else {
     res.status(400).json({
@@ -119,7 +126,9 @@ app.put("/signatures/:id", async (req, res) => {
 app.delete("/signatures/:id", async (req, res) => {
   const id = parseInt(req.params.id); // params are string type
 
-  const queryResult: any = null; ////FIXME-TASK: delete the row with given id from the db  
+  const queryText = "DELETE FROM signatures where id = $1";
+  const values = [id];
+  const queryResult: any = await client.query(queryText, values);
   const didRemove = queryResult.rowCount === 1;
 
   if (didRemove) {
